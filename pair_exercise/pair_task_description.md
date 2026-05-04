@@ -1,4 +1,4 @@
-# Corrected Kali Pair Digital Forensics Manual
+# Kali Pair Exercise Guide - Digital Forensics 
 
 **Lab model:** each student prepares their own Kali VM as **Role A**, then students exchange VMs and perform **Role B** on the other student's VM.
 
