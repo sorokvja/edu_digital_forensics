@@ -229,7 +229,7 @@ Host: 127.0.0.1:8099
 username=students_a&password=TestPass2024
 ```
 
-Role A now returns to Terminal 1, stops `tshark` with **Ctrl+C**, and moves the capture into `~/task3/login_capture.pcapng`, Role B can proceed with the task now.
+Role A now returns to Terminal 1, stops `tshark` with **Ctrl+C**, and moves the capture into `~/task3/login_capture.pcapng`, Role B can proceed with the task then.
 
 ### Quick troubleshooting
 
