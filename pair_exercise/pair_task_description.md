@@ -92,22 +92,38 @@ When `zip -e hidden_archive.zip final.txt` asks for a password, enter `TIGER42`.
 
 **Goal:** create a `.pcapng` showing cleartext HTTP POST credentials.
 
+This corrected version writes the capture first to `/tmp` and then moves it into `~/task3`. This avoids a common Kali/Wireshark permission failure where `sudo tshark`/`dumpcap` cannot create the output file directly inside the normal user's home directory.
+
 ```bash
 sudo apt update
 sudo apt install -y tshark curl
 mkdir -p ~/task3/www
 cd ~/task3/www
+rm -f /tmp/login_capture.pcapng ~/task3/login_capture.pcapng ~/task3/tshark.log
 python3 -m http.server 8099 --bind 127.0.0.1 > ~/task3/http_server.log 2>&1 &
 echo $! > ~/task3/http_server.pid
-sudo tshark -i lo -f 'tcp port 8099' -a duration:10 -w ~/task3/login_capture.pcapng &
+sudo -v
+sudo tshark -i lo -f 'tcp port 8099' -a duration:15 -w /tmp/login_capture.pcapng > ~/task3/tshark.log 2>&1 &
+echo $! > ~/task3/tshark.pid
 sleep 2
-curl -s -X POST -d 'username=students_a&password=TestPass2024' http://127.0.0.1:8099/login > /dev/null
-sleep 10
+curl -sS -X POST -d 'username=students_a&password=TestPass2024' http://127.0.0.1:8099/login -o /dev/null
+wait "$(cat ~/task3/tshark.pid)"
+sudo chown "$USER:$USER" /tmp/login_capture.pcapng
+mv /tmp/login_capture.pcapng ~/task3/login_capture.pcapng
 kill "$(cat ~/task3/http_server.pid)"
 ls -lh ~/task3/login_capture.pcapng
 ```
 
-**Command/flag notes:** `python3 -m http.server` starts a simple server; `--bind 127.0.0.1` limits it to the VM; `> file 2>&1` logs output and errors; `&` backgrounds the process; `$!` is the last background PID; `tshark -i lo` captures loopback; `-f` is a capture filter; `-a duration:10` auto-stops; `-w` writes the capture; `curl -X POST -d` sends form data.
+Optional quick verification:
+
+```bash
+tshark -r ~/task3/login_capture.pcapng -d tcp.port==8099,http -Y 'http.request.method == "POST"' -T fields -e frame.time -e http.request.uri -e urlencoded-form.key -e urlencoded-form.value
+strings ~/task3/login_capture.pcapng | grep -iE 'username|password|students_a|TestPass|login'
+```
+
+It is acceptable if the Python HTTP server returns `501 Unsupported method` or `404 Not Found`; the forensic evidence is the cleartext client request and POST body in the packet capture.
+
+**Command/flag notes:** `python3 -m http.server` starts a simple server; `--bind 127.0.0.1` limits it to the VM; `> file 2>&1` logs output and errors; `&` backgrounds the process; `$!` is the last background PID; `sudo -v` refreshes sudo authentication before backgrounding `tshark`; `tshark -i lo` captures loopback traffic; `-f 'tcp port 8099'` keeps only traffic for the local lab server; `-a duration:15` auto-stops capture after 15 seconds; `-w /tmp/login_capture.pcapng` writes the capture to a root-writable temporary path; `curl -X POST -d` sends form data; `-o /dev/null` discards the response body; `wait` pauses until the capture process exits; `chown "$USER:$USER"` returns ownership of the capture to the normal user.
 
 ---
 
