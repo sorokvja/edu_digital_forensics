@@ -229,7 +229,22 @@ Host: 127.0.0.1:8099
 username=students_a&password=TestPass2024
 ```
 
-Role A now returns to Terminal 1, stops `tshark` with **Ctrl+C**, moves the capture into `~/task3/login_capture.pcapng`, and gives that file to Role B.
+Role A now returns to Terminal 1, stops `tshark` with **Ctrl+C**, and moves the capture into `~/task3/login_capture.pcapng`, Role B can proceed with the task now.
+
+### Quick troubleshooting
+
+```bash
+# Purpose: Check that the capture contains packets on port 8099.
+# Flags: -r reads the file; -Y applies a display filter.
+tshark -r ~/task3/login_capture.pcapng -Y 'tcp.port == 8099'
+```
+
+If no packets appear, check these four points:
+
+1. `tshark` must be running before `curl` is executed.
+2. Localhost traffic must be captured on `lo`, not `eth0`.
+3. The capture should first be written to `/tmp/login_capture.pcapng` to avoid path permission issues.
+4. `ss -ltnp | grep ':8099'` must show Netcat listening before `curl` is run.
 
 ---
 
@@ -495,21 +510,6 @@ Document:
 - Username: `students_a`
 - Password: `TestPass2024`
 - Finding: credentials were visible because HTTP does not encrypt the request body.
-
-### Quick troubleshooting
-
-```bash
-# Purpose: Check that the capture contains packets on port 8099.
-# Flags: -r reads the file; -Y applies a display filter.
-tshark -r ~/task3/login_capture.pcapng -Y 'tcp.port == 8099'
-```
-
-If no packets appear, check these four points:
-
-1. `tshark` must be running before `curl` is executed.
-2. Localhost traffic must be captured on `lo`, not `eth0`.
-3. The capture should first be written to `/tmp/login_capture.pcapng` to avoid path permission issues.
-4. `ss -ltnp | grep ':8099'` must show Netcat listening before `curl` is run.
 
 ---
 
