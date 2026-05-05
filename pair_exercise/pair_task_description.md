@@ -96,7 +96,7 @@ This version intentionally avoids a full web application. `curl` creates the HTT
 
 Use **two terminal tabs/windows**. Start capture first, then generate the HTTP request.
 
-### Terminal 1 — capture traffic
+### Terminal 1: capture traffic
 
 ```bash
 # Purpose: Refresh Kali's package index before installing tools.
@@ -132,7 +132,7 @@ sudo rm -f /tmp/login_capture.pcapng ~/task3/login_capture.pcapng ~/task3/nc_rec
 sudo tshark -i lo -f 'tcp port 8099' -w /tmp/login_capture.pcapng
 ```
 
-Now move to [Terminal 2 — generate one HTTP POST request](#terminal-2-—-generate-one-HTTP-POST-request) 
+Now move to [Terminal 2: generate a HTTP POST request](#terminal-2:-generate-a-http-post-request) 
 
 ```bash
 # Purpose: Change ownership of the capture from root back to the current Kali user.
@@ -153,7 +153,7 @@ mv /tmp/login_capture.pcapng ~/task3/login_capture.pcapng
 ls -lh ~/task3/login_capture.pcapng
 ```
 
-### Terminal 2 — generate one HTTP POST request
+### Terminal 2: generate a HTTP POST request
 
 ```bash
 # Purpose: Move into the Task 3 working directory.
