@@ -90,40 +90,146 @@ When `zip -e hidden_archive.zip final.txt` asks for a password, enter `TIGER42`.
 
 ## A3. HTTP credential capture without external dependency
 
-**Goal:** create a `.pcapng` showing cleartext HTTP POST credentials.
+**Goal:** create a `.pcapng` file containing a cleartext HTTP `POST` request with test credentials, then extract those credentials during investigation.
 
-This corrected version writes the capture first to `/tmp` and then moves it into `~/task3`. This avoids a common Kali/Wireshark permission failure where `sudo tshark`/`dumpcap` cannot create the output file directly inside the normal user's home directory.
+This version intentionally avoids a full web application. `curl` creates the HTTP request, `nc` listens on a TCP port and receives the raw bytes, and `tshark` captures the traffic. Netcat does not parse HTTP; it only sends and receives TCP data.
+
+Use **two terminal tabs/windows**. Start capture first, then generate the HTTP request.
+
+### Terminal 1 — capture traffic
 
 ```bash
+# Purpose: Refresh Kali's package index before installing tools.
+# Flags: none.
 sudo apt update
-sudo apt install -y tshark curl
-mkdir -p ~/task3/www
-cd ~/task3/www
-rm -f /tmp/login_capture.pcapng ~/task3/login_capture.pcapng ~/task3/tshark.log
-python3 -m http.server 8099 --bind 127.0.0.1 > ~/task3/http_server.log 2>&1 &
-echo $! > ~/task3/http_server.pid
-sudo -v
-sudo tshark -i lo -f 'tcp port 8099' -a duration:15 -w /tmp/login_capture.pcapng > ~/task3/tshark.log 2>&1 &
-echo $! > ~/task3/tshark.pid
-sleep 2
-curl -sS -X POST -d 'username=students_a&password=TestPass2024' http://127.0.0.1:8099/login -o /dev/null
-wait "$(cat ~/task3/tshark.pid)"
+```
+
+```bash
+# Purpose: Install packet capture, HTTP client, and Netcat listener tools.
+# Flags: -y automatically confirms the installation prompt.
+sudo apt install -y tshark curl netcat-openbsd
+```
+
+```bash
+# Purpose: Create the Task 3 working directory.
+# Flags: -p creates missing parent directories and ignores the error if the directory already exists.
+mkdir -p ~/task3
+```
+
+```bash
+# Purpose: Remove old files so the result belongs only to this attempt.
+# Flags: -f removes files without asking and ignores missing files.
+sudo rm -f /tmp/login_capture.pcapng ~/task3/login_capture.pcapng ~/task3/nc_received_http.txt ~/task3/nc.pid
+```
+
+```bash
+# Purpose: Start packet capture on localhost traffic and write the evidence file to /tmp.
+# Flags:
+#   -i lo captures the loopback interface used by 127.0.0.1 traffic.
+#   -f 'tcp port 8099' is a capture filter; only TCP traffic using port 8099 is saved.
+#   -w /tmp/login_capture.pcapng writes packets to a pcapng file.
+# Action: leave this running until the curl request has been sent in Terminal 2.
+sudo tshark -i lo -f 'tcp port 8099' -w /tmp/login_capture.pcapng
+```
+
+After the `curl` command in Terminal 2 finishes, return here and press **Ctrl+C** to stop `tshark` cleanly.
+
+```bash
+# Purpose: Change ownership of the capture from root back to the current Kali user.
+# Flags: none.
+# Variable: $USER expands to the current username.
 sudo chown "$USER:$USER" /tmp/login_capture.pcapng
+```
+
+```bash
+# Purpose: Move the completed evidence file into the Task 3 directory.
+# Flags: none.
 mv /tmp/login_capture.pcapng ~/task3/login_capture.pcapng
-kill "$(cat ~/task3/http_server.pid)"
+```
+
+```bash
+# Purpose: Confirm that the capture file exists and has a non-zero size.
+# Flags: -l gives a long listing; -h shows a human-readable size.
 ls -lh ~/task3/login_capture.pcapng
 ```
 
-Optional quick verification:
+### Terminal 2 — generate one HTTP POST request
 
 ```bash
-tshark -r ~/task3/login_capture.pcapng -d tcp.port==8099,http -Y 'http.request.method == "POST"' -T fields -e frame.time -e http.request.uri -e urlencoded-form.key -e urlencoded-form.value
-strings ~/task3/login_capture.pcapng | grep -iE 'username|password|students_a|TestPass|login'
+# Purpose: Move into the Task 3 working directory.
+# Flags: none.
+cd ~/task3
 ```
 
-It is acceptable if the Python HTTP server returns `501 Unsupported method` or `404 Not Found`; the forensic evidence is the cleartext client request and POST body in the packet capture.
+```bash
+# Purpose: Start a one-request Netcat listener on 127.0.0.1:8099.
+# Flags and operators:
+#   printf sends a minimal raw HTTP response: "200 OK" with a two-byte body, "OK".
+#   \r\n means carriage-return + line-feed, the standard HTTP line ending.
+#   | pipes that response into Netcat so curl receives a valid HTTP reply.
+#   nc starts Netcat.
+#   -l listens for an incoming TCP connection.
+#   -s 127.0.0.1 binds the listener to localhost only.
+#   -p 8099 selects TCP port 8099.
+#   -w 10 exits after a short timeout if the connection becomes idle.
+#   > saves the received HTTP request into nc_received_http.txt.
+#   & runs the listener in the background.
+printf 'HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: 2\r\n\r\nOK' | nc -l -s 127.0.0.1 -p 8099 -w 10 > ~/task3/nc_received_http.txt &
+```
 
-**Command/flag notes:** `python3 -m http.server` starts a simple server; `--bind 127.0.0.1` limits it to the VM; `> file 2>&1` logs output and errors; `&` backgrounds the process; `$!` is the last background PID; `sudo -v` refreshes sudo authentication before backgrounding `tshark`; `tshark -i lo` captures loopback traffic; `-f 'tcp port 8099'` keeps only traffic for the local lab server; `-a duration:15` auto-stops capture after 15 seconds; `-w /tmp/login_capture.pcapng` writes the capture to a root-writable temporary path; `curl -X POST -d` sends form data; `-o /dev/null` discards the response body; `wait` pauses until the capture process exits; `chown "$USER:$USER"` returns ownership of the capture to the normal user.
+```bash
+# Purpose: Save the Netcat background process ID so we can wait for it later.
+# Flags and variables:
+#   $! is the PID of the most recent background process.
+#   > writes the PID into nc.pid.
+echo $! > ~/task3/nc.pid
+```
+
+```bash
+# Purpose: Verify that port 8099 is listening before sending credentials.
+# Flags:
+#   -l shows listening sockets.
+#   -t shows TCP sockets.
+#   -n keeps numeric IP addresses and port numbers.
+#   -p shows the owning process where permitted.
+ss -ltnp | grep ':8099'
+```
+
+```bash
+# Purpose: Send a cleartext HTTP POST request with test credentials.
+# Flags:
+#   -sS hides progress output but still shows errors.
+#   --max-time 5 prevents hanging if the listener was not started correctly.
+#   -X POST explicitly sets the HTTP method to POST.
+#   -d sends form data in the request body; curl also sets application/x-www-form-urlencoded.
+#   -o /dev/null discards the HTTP response body.
+curl -sS --max-time 5 -X POST -d 'username=students_a&password=TestPass2024' http://127.0.0.1:8099/login -o /dev/null
+```
+
+```bash
+# Purpose: Wait for Netcat to finish and flush nc_received_http.txt.
+# Flags and operators:
+#   $(cat ~/task3/nc.pid) reads the saved PID.
+#   2>/dev/null hides harmless shell messages if the process already exited.
+wait "$(cat ~/task3/nc.pid)" 2>/dev/null
+```
+
+```bash
+# Purpose: Confirm that Netcat received the raw HTTP request.
+# Flags: none.
+cat ~/task3/nc_received_http.txt
+```
+
+Expected output includes:
+
+```text
+POST /login HTTP/1.1
+Host: 127.0.0.1:8099
+...
+username=students_a&password=TestPass2024
+```
+
+Role A now returns to Terminal 1, stops `tshark` with **Ctrl+C**, moves the capture into `~/task3/login_capture.pcapng`, and gives that file to Role B.
 
 ---
 
@@ -339,20 +445,71 @@ cat final.txt
 
 ## B3. Analyze HTTP capture
 
+### Wireshark method
+
 ```bash
-sudo apt update
-sudo apt install -y wireshark tshark
-mkdir -p ~/case3
-cp /home/<student_user>/task3/login_capture.pcapng ~/case3/
-cd ~/case3
-wireshark login_capture.pcapng &
-tshark -r login_capture.pcapng -Y 'http.request.method == "POST"' -T fields -e frame.time -e ip.src -e http.host -e http.request.uri -e urlencoded-form.key -e urlencoded-form.value
-strings login_capture.pcapng | grep -iE 'username|password|login'
+# Purpose: Open the capture file in Wireshark.
+# Operator: & starts Wireshark in the background.
+wireshark ~/task3/login_capture.pcapng &
 ```
 
-In Wireshark, filter with `http.request.method == "POST"`, then right-click the packet and select **Follow → HTTP Stream**.
+In Wireshark:
 
-**Command/flag notes:** `tshark -r` reads a capture; `-Y` applies a display filter; `-T fields` prints selected fields; each `-e` selects a field; `strings | grep -iE` extracts and searches printable text.
+1. Use display filter `tcp.port == 8099`.
+2. Find the packet containing `POST /login`.
+3. Right-click the packet and choose **Follow → TCP Stream**.
+4. Record the cleartext form data:
+
+```text
+username=students_a&password=TestPass2024
+```
+
+If Wireshark does not label port `8099` as HTTP, use **Analyze → Decode As... → HTTP** for TCP port `8099`.
+
+### TShark method
+
+```bash
+# Purpose: Extract decoded HTTP POST data from the capture.
+# Flags:
+#   -r reads an existing capture file.
+#   -d tcp.port==8099,http forces TShark to decode TCP port 8099 as HTTP.
+#   -Y keeps only packets matching the display filter.
+#   -T fields prints selected fields only.
+#   -e selects one field to print.
+tshark -r ~/task3/login_capture.pcapng -d tcp.port==8099,http -Y 'http.request.method == "POST"' -T fields -e frame.time -e http.request.uri -e http.file_data
+```
+
+```bash
+# Purpose: Fallback method; search readable strings in the pcapng file.
+# Flags:
+#   -i makes grep case-insensitive.
+#   -E enables extended regular expressions.
+strings ~/task3/login_capture.pcapng | grep -iE 'username|password|students_a|TestPass2024'
+```
+
+Document:
+
+- File: `login_capture.pcapng`
+- URL: `http://127.0.0.1:8099/login`
+- Method: `POST`
+- Username: `students_a`
+- Password: `TestPass2024`
+- Finding: credentials were visible because HTTP does not encrypt the request body.
+
+### Quick troubleshooting
+
+```bash
+# Purpose: Check that the capture contains packets on port 8099.
+# Flags: -r reads the file; -Y applies a display filter.
+tshark -r ~/task3/login_capture.pcapng -Y 'tcp.port == 8099'
+```
+
+If no packets appear, check these four points:
+
+1. `tshark` must be running before `curl` is executed.
+2. Localhost traffic must be captured on `lo`, not `eth0`.
+3. The capture should first be written to `/tmp/login_capture.pcapng` to avoid path permission issues.
+4. `ss -ltnp | grep ':8099'` must show Netcat listening before `curl` is run.
 
 ---
 
