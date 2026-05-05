@@ -132,7 +132,7 @@ sudo rm -f /tmp/login_capture.pcapng ~/task3/login_capture.pcapng ~/task3/nc_rec
 sudo tshark -i lo -f 'tcp port 8099' -w /tmp/login_capture.pcapng
 ```
 
-After the `curl` command in Terminal 2 finishes, return here and press **Ctrl+C** to stop `tshark` cleanly.
+Now move to [Terminal 2 — generate one HTTP POST request](#terminal-2-—-generate-one-HTTP-POST-request) 
 
 ```bash
 # Purpose: Change ownership of the capture from root back to the current Kali user.
