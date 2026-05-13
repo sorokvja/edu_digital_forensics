@@ -1461,18 +1461,26 @@ printf '\nIRIS_ADM_PASSWORD=Google2026\n' >> .env
 
 ```bash
 docker compose pull
-# Pull the container images required by DFIR-IRIS.
+# Pull the DFIR-IRIS container images defined in compose.yaml / docker-compose.yml.
 ```
 
 ```bash
 docker compose up -d
-# Start DFIR-IRIS containers in detached/background mode.
-# -d means detached.
+# Start the DFIR-IRIS containers.
+# -d runs them in detached/background mode.
 ```
 
 ```bash
 docker compose ps
-# Show the running DFIR-IRIS Docker services.
+# Show the status of the DFIR-IRIS containers.
+```
+
+**[Optional cleanup of the Git warning]** This is optional. If you prefer not to see HEAD (no branch), create a local branch at the current tag:
+You do not need this for the lab. Detached HEAD is fine for deploying a fixed release tag.
+```bash
+git switch -c iris-v2.4.27
+# Create and switch to a local branch named iris-v2.4.27 at the current commit.
+# -c creates the branch and switches to it.
 ```
 
 **[OPTIONAL — only if no fixed IRIS admin password was configured]** Run this only if you did not set `IRIS_ADM_PASSWORD` before the first start:
