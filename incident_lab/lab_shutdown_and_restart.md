@@ -20,7 +20,8 @@ A powered-off VM cannot keep containers running in memory. Safe shutdown means:
 3. Ubuntu is powered off through the guest OS, not by VMware forced power-off.
 4. Later, Ubuntu, `iris01`, and DFIR-IRIS are started again.
 
-Avoid these commands unless you intentionally want to remove lab data:
+$$\color{red}{\text{**Avoid these commands unless you intentionally want to remove lab data!**}}$$
+
 
 ```bash
 docker compose down -v
