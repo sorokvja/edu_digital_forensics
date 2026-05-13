@@ -1246,7 +1246,7 @@ lxc list iris01
 # Confirm that IRIS01 is RUNNING and has an IPv4 address.
 ```
 
-### 12.5 Test DNS, outbound networking, and Ubuntu repository access inside IRIS01:
+### 12.5 Test Ubuntu repository access, outbound networking and DNS inside IRIS01:
 
 ```bash
 lxc exec iris01 -- apt update
