@@ -1,6 +1,6 @@
 # Ubuntu 24.04.4 Incident Lab — Step-by-Step Technical Implementation Guide
 
-**Scope:** technical implementation only. The final report, screenshots, IRIS evidence write-up, and PDF packaging are intentionally left for later.
+**Scope:** technical implementation only. The final report, screenshots, IRIS evidence write-up, and PDF packaging are intentionally left out of scope.
 
 **Primary platform:** one Ubuntu 24.04.4 LTS VM in VMware.
 
@@ -31,16 +31,16 @@ Default example addresses used in this guide:
 
 | System | Example IP |
 |---|---:|
-| WEB01 | `192.168.56.10` |
+| WEB01 | `192.168.52.134` |
 | KALI01, if used | `192.168.56.20` |
 
-Replace `192.168.56.10` with the real IP of your Ubuntu VM if you use another address.
+Replace `192.168.52.134` with the real IP of your Ubuntu VM if you use another address.
 
 ---
 
 ## 1. Target lab design
 
-The assignment from the screenshot is implemented as follows:
+The assignment is implemented as follows:
 
 | Assignment component | Implementation |
 |---|---|
@@ -147,7 +147,7 @@ network:
     ens37:
       dhcp4: false
       addresses:
-        - 192.168.56.10/24
+        - 192.168.52.134/24
 ```
 
 ```bash
@@ -173,6 +173,14 @@ sudo apt full-upgrade -y
 # -y answers yes to prompts.
 ```
 
+```
+# remove packages installed automatically as dependencies but no longer needed:
+sudo apt autoremove --purge --simulate
+# --simulate show what would happen without changing the system.
+sudo apt autoremove --purge
+# --purge also remove related package configuration files.
+```
+
 **[CONDITIONAL — only if a kernel or core system package was upgraded]** Reboot before continuing.
 
 ```bash
@@ -181,6 +189,8 @@ sudo reboot
 ```
 
 ### 2.7 Install base packages on WEB01
+
+Might be already installed, could be checked before the installation!
 
 ```bash
 sudo apt install -y software-properties-common
@@ -286,25 +296,31 @@ sudo ufw allow from 192.168.56.0/24 to any port 80 proto tcp
 
 ---
 
-## 3. Put the course materials on WEB01
+## 3. Put the Digital Forensics course materials on WEB01
 
-This guide assumes your uploaded course bundle contains the files shown in the screenshot, including:
+Make Digital Forensics course materials be available offline
 
-```text
-html.txt
-auditd.txt
-sudo.txt
-backup.txt
-bash.txt
-osquery.txt
-dfiriris.txt
+```
+mkdir -p ~/kiberacs_materials
+# Create a directory to store the downloaded course materials.
+
+cd ~/kiberacs_materials
+# Enter that directory.
+
+wget --mirror --no-parent --accept=.txt,.html http://zerobank.vip:8099/kiberacs/
+# Download the page and linked .txt/.html files under /kiberacs/.
+# --mirror enables recursive retrieval with sensible defaults.
+# --no-parent prevents wget from going above /kiberacs/.
+# --accept limits downloads to .txt and .html content.
+
+tar -czf kiberacs_materials.tar.gz .
+# Pack everything into a single archive to feed to AI for an automated guide preparation.
 ```
 
-If the archive is already in `~/Downloads/kiberacs.tar.gz`, extract it as follows.
-
+If later on the archive will need to be unpacked:
 ```bash
 mkdir -p ~/lab-materials
-# Create a local directory for course materials.
+# Create a local directory for unpacked materials.
 # -p avoids an error if the directory already exists.
 ```
 
@@ -1165,7 +1181,7 @@ lxc list iris01
 ```
 
 ```bash
-lxc exec iris01 -- ping -c 2 192.168.56.10
+lxc exec iris01 -- ping -c 2 192.168.52.134
 # Test connectivity from IRIS01 to WEB01.
 # -- separates lxc arguments from the command run inside the container.
 # ping -c 2 sends two ICMP echo requests and stops.
@@ -1475,23 +1491,23 @@ lxc exec attacker01 -- apt install -y nmap nikto curl openssh-client iputils-pin
 ### 16.2 Verify ATTACKER01 can reach WEB01
 
 ```bash
-lxc exec attacker01 -- ping -c 2 192.168.56.10
+lxc exec attacker01 -- ping -c 2 192.168.52.134
 # Send two ICMP echo requests from ATTACKER01 to WEB01.
 # -c 2 stops after two packets.
-# Replace 192.168.56.10 if WEB01 uses another lab IP.
+# Replace 192.168.52.134 if WEB01 uses another lab IP.
 ```
 
 ### 16.3 Run Nmap from ATTACKER01
 
 ```bash
-lxc exec attacker01 -- nmap -Pn -sV 192.168.56.10
+lxc exec attacker01 -- nmap -Pn -sV 192.168.52.134
 # Scan WEB01 from ATTACKER01 and detect service versions.
 # -Pn skips host discovery and treats the host as online.
 # -sV probes open ports to identify service versions.
 ```
 
 ```bash
-lxc exec attacker01 -- nmap -Pn -p 22,80 -sV 192.168.56.10
+lxc exec attacker01 -- nmap -Pn -p 22,80 -sV 192.168.52.134
 # Focus the scan on SSH and HTTP.
 # -p 22,80 restricts the scan to ports 22 and 80.
 # -sV performs service-version detection.
@@ -1500,7 +1516,7 @@ lxc exec attacker01 -- nmap -Pn -p 22,80 -sV 192.168.56.10
 ### 16.4 Run Nikto from ATTACKER01
 
 ```bash
-lxc exec attacker01 -- nikto -h http://192.168.56.10
+lxc exec attacker01 -- nikto -h http://192.168.52.134
 # Run Nikto against Apache on WEB01.
 # -h specifies the target host or URL.
 ```
@@ -1508,12 +1524,12 @@ lxc exec attacker01 -- nikto -h http://192.168.56.10
 ### 16.5 Retrieve exposed files from ATTACKER01
 
 ```bash
-lxc exec attacker01 -- curl http://192.168.56.10/backup.sh
+lxc exec attacker01 -- curl http://192.168.52.134/backup.sh
 # Retrieve the exposed backup script from WEB01.
 ```
 
 ```bash
-lxc exec attacker01 -- curl http://192.168.56.10/.env
+lxc exec attacker01 -- curl http://192.168.52.134/.env
 # Retrieve the exposed credential file from WEB01.
 # This should reveal the lab password Google2026.
 ```
@@ -1565,7 +1581,7 @@ sudo apt install -y nmap zenmap nikto firefox-esr
 ### 17.3 Verify Kali can reach WEB01
 
 ```bash
-ping -c 2 192.168.56.10
+ping -c 2 192.168.52.134
 # Send two ICMP echo requests to WEB01.
 # -c 2 stops after two packets.
 ```
@@ -1575,7 +1591,7 @@ ping -c 2 192.168.56.10
 CLI Nmap scan:
 
 ```bash
-nmap -Pn -sV 192.168.56.10
+nmap -Pn -sV 192.168.52.134
 # Scan WEB01 and detect service versions.
 # -Pn skips host discovery and treats the host as online.
 # -sV probes open ports to identify service versions.
@@ -1584,7 +1600,7 @@ nmap -Pn -sV 192.168.56.10
 Focused CLI scan:
 
 ```bash
-nmap -Pn -p 22,80 -sV 192.168.56.10
+nmap -Pn -p 22,80 -sV 192.168.52.134
 # Scan only SSH and HTTP.
 # -p 22,80 restricts the scan to ports 22 and 80.
 # -sV performs service-version detection.
@@ -1597,16 +1613,16 @@ zenmap
 # Start the Zenmap GUI from Kali.
 ```
 
-In Zenmap, set the target to `192.168.56.10` and use a command equivalent to:
+In Zenmap, set the target to `192.168.52.134` and use a command equivalent to:
 
 ```text
-nmap -Pn -sV 192.168.56.10
+nmap -Pn -sV 192.168.52.134
 ```
 
 ### 17.5 Run Nikto from Kali
 
 ```bash
-nikto -h http://192.168.56.10
+nikto -h http://192.168.52.134
 # Scan the Apache web server for common web weaknesses.
 # -h specifies the target host or URL.
 ```
@@ -1614,12 +1630,12 @@ nikto -h http://192.168.56.10
 ### 17.6 Retrieve exposed files from Kali
 
 ```bash
-curl http://192.168.56.10/backup.sh
+curl http://192.168.52.134/backup.sh
 # Retrieve the exposed backup script from WEB01.
 ```
 
 ```bash
-curl http://192.168.56.10/.env
+curl http://192.168.52.134/.env
 # Retrieve the exposed .env file from WEB01.
 # This reveals the lab password Google2026.
 ```
@@ -1633,7 +1649,7 @@ This step matches the screenshot instruction to connect from the IRIS LXC contai
 Run on WEB01:
 
 ```bash
-lxc exec iris01 -- ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no kiberacs@192.168.56.10
+lxc exec iris01 -- ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no kiberacs@192.168.52.134
 # Start an SSH login from IRIS01 to WEB01 as kiberacs.
 # -o PreferredAuthentications=password asks SSH to prefer password authentication.
 # -o PubkeyAuthentication=no disables key authentication for this attempt.
@@ -1737,7 +1753,7 @@ curl http://127.0.0.1 | head -n 5
 ```
 
 ```bash
-curl http://192.168.56.10 | head -n 5
+curl http://192.168.52.134 | head -n 5
 # Confirm the modified page is served on the lab IP.
 # Replace the IP if your WEB01 address is different.
 ```
@@ -1874,7 +1890,7 @@ Do this through the IRIS web interface after confirming the platform works.
 
 1. Create one case for the simulated Apache compromise.
 2. Add asset `WEB01`.
-3. Add IP `192.168.56.10` or your actual WEB01 IP.
+3. Add IP `192.168.52.134` or your actual WEB01 IP.
 4. Add notes for these events:
    - Nmap or Zenmap scan.
    - Nikto scan.
