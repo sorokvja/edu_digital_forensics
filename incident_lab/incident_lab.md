@@ -1424,19 +1424,37 @@ git status --short --branch
 
 ### 14.3 Prepare the environment file
 
+First check whether .env already exists:
+```bash
+ls -l .env
+# Check whether the DFIR-IRIS environment file already exists.
+# If this says "No such file or directory", create it with the next command.
+```
+
 ```bash
 cp .env.model .env
-# Create the working environment file from the project template.
+# Create the working DFIR-IRIS environment file from the template.
+# cp copies .env.model to .env.
 ```
 
 **[OPTIONAL — lab convenience]** Set a known initial IRIS administrator password before the first start.
 
+Check whether the admin password variable already exists:
+```bash
+grep -n '^IRIS_ADM_PASSWORD=' .env
+# Search for an existing IRIS_ADM_PASSWORD line.
+# -n prints matching line numbers.
+# ^ means the match must start at the beginning of the line.
+# If this prints nothing, that is okay; append the password with the next command.
+```
+
+If the previous command printed nothing, run:
 ```bash
 printf '\nIRIS_ADM_PASSWORD=Google2026\n' >> .env
-# Append a lab-only initial administrator password to the IRIS environment file.
-# This affects only the first administrator creation.
-# printf prints exactly the requested line with a leading newline.
-# >> appends to .env instead of replacing it.
+# Append a known lab administrator password to the .env file.
+# printf prints the exact text.
+# \n adds newline characters.
+# >> appends to the file instead of overwriting it.
 ```
 
 ### 14.4 Pull and start IRIS containers
