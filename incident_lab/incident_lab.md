@@ -1504,41 +1504,64 @@ exit
 lxc list iris01
 # Show IRIS01's IP address.
 ```
+The important IP is: x.x.x.x (eth0). Use that IP for DFIR-IRIS access from the Ubuntu VM / WEB01.
+
+The other addresses are Docker bridge networks created inside the IRIS LXD container:
+172.x.x.x (br-03b8ba9e70e8)
+172.x.x.x (br-385ff99d52b9)
+172.x.x.x (docker0)
+
+Do not use the 172.x.x.x addresses for browser access to IRIS. They are Docker-internal gateway addresses, not the LXD container’s main network address.
 
 ```bash
-export IRIS_IP="$(lxc list iris01 -c 4 --format csv | awk '{print $1}')"
-# Store the first IRIS01 IP address in IRIS_IP.
-# -c 4 prints only the IPv4/IPv6 address column.
-# --format csv removes the table formatting.
-# awk '{print $1}' keeps only the first address if multiple values are shown.
+export IRIS_IP="$(lxc exec iris01 -- ip -4 -o addr show dev eth0 | awk '{split($4,a,"/"); print a[1]}')"
+# Store the IRIS01 eth0 IPv4 address in IRIS_IP.
+# lxc exec iris01 -- runs the following command inside the iris01 container.
+# ip shows network interface information.
+# -4 limits output to IPv4.
+# -o prints one-line output.
+# addr show dev eth0 shows only the eth0 interface.
+# awk extracts only the IP address and removes the /subnet suffix.
 ```
 
 ```bash
 printf '%s\n' "$IRIS_IP"
-# Print the detected IRIS01 IP address.
+# Print the detected IRIS01 eth0 IP address.
 ```
 
+Check that IRIS containers are running:
+```bash
+lxc exec iris01 -- bash -lc 'cd /opt/iris-web && docker compose ps'
+# Run docker compose ps inside IRIS01.
+# bash -lc runs the quoted command through Bash.
+# cd /opt/iris-web enters the IRIS project directory.
+# && runs the second command only if cd succeeds.
+# docker compose ps shows the running IRIS services and published ports.
+```
+
+Test the IRIS web endpoint:
 ```bash
 curl -k -I "https://${IRIS_IP}"
-# Test the IRIS HTTPS endpoint from WEB01.
-# -k allows the self-signed certificate.
+# Test the DFIR-IRIS HTTPS endpoint from WEB01.
+# -k allows the self-signed lab certificate.
 # -I requests only HTTP headers.
 # Quoting the URL protects against empty or unexpected variable content.
 ```
+A result with an HTTP status such as 200, 301, 302, 401, or similar means the web service is responding. 
 
-Open the IRIS web interface from a browser inside the Ubuntu VM using the printed IP address:
+Now open the IRIS web interface from a browser inside the Ubuntu VM using the printed IP address: 
 
 ```text
-https://IRIS_IP_FROM_THE_COMMAND_ABOVE
+https://<the detected IRIS01 eth0 IP address>
 ```
 
-Default username is normally:
-
+Default credentials:
 ```text
 administrator
 ```
-
 Use `Google2026` if you appended `IRIS_ADM_PASSWORD=Google2026` before first start. Otherwise use the generated password found in the container logs.
+
+One note: the detected IRIS01 eth0 IP address is the LXD private network address. It should work from WEB01 / the Ubuntu VM. It may not work directly from the optional Kali VM unless routing or port forwarding is configured later. That is fine for now; Kali is not needed for this IRIS access test.
 
 ---
 
