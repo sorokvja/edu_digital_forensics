@@ -1,4 +1,4 @@
-# Ubuntu 24.04.4 Incident Lab — Step-by-Step Technical Implementation Guide
+# Incident Lab — Step-by-Step Technical Implementation Guide
 
 **Scope:** technical implementation only. The final report, screenshots, IRIS evidence write-up, and PDF packaging are intentionally left out of scope.
 
