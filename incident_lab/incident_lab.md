@@ -1192,11 +1192,12 @@ lxc list iris01
 ```
 
 ```bash
-lxc init ubuntu:24.04 iris01 -c limits.cpu=2 -c limits.memory=2GiB
+lxc init ubuntu:24.04 iris01 -s default -c limits.cpu=4 -c limits.memory=3GiB
 # Create an Ubuntu 24.04 LXD container named iris01 without starting it.
-# -c applies LXD instance configuration keys.
-# limits.cpu=8 caps the container at 2 vCPU.
-# limits.memory=8GiB caps memory at 2 GiB.
+# -s default explicitly stores the root disk in the default storage pool.
+# -c applies instance configuration keys.
+# limits.cpu=2 caps the container at four vCPUs.
+# limits.memory=4GiB caps the container memory at 3 GiB.
 ```
 
 ### 12.2 Attach the 25 GiB Btrfs pool to `/var/lib/docker`
@@ -1208,14 +1209,20 @@ lxc storage volume create docker iris01-docker
 ```
 
 ```bash
-lxc config device add iris01 docker disk pool=docker source=iris01-docker path=/var/lib/docker
-# Attach the iris01-docker storage volume to IRIS01.
-# device name docker = the LXD device label.
-# disk = device type.
-# pool=docker selects the Btrfs storage pool.
-# source=iris01-docker selects the custom volume.
-# path=/var/lib/docker mounts the volume where Docker stores images, containers, and volumes.
+lxc storage volume list docker
+# Confirm that iris01-docker already exists in the docker storage pool.
 ```
+
+```bash
+lxc config device add iris01 docker disk pool=docker source=iris01-docker path=/var/lib/docker
+# Attach the existing iris01-docker custom volume to IRIS01.
+# docker = LXD device name.
+# disk = disk-device type.
+# pool=docker selects your Btrfs storage pool.
+# source=iris01-docker selects the custom volume.
+# path=/var/lib/docker mounts it where Docker stores images, containers, and volumes.
+```
+That custom volume is separate from the root disk; adding it as a disk device is the correct mechanism for mounting a custom LXD storage volume inside a container.
 
 ### 12.3 Enable nesting options required by Docker inside LXD
 
@@ -1223,8 +1230,8 @@ lxc config device add iris01 docker disk pool=docker source=iris01-docker path=/
 lxc config set iris01 security.nesting=true security.syscalls.intercept.mknod=true security.syscalls.intercept.setxattr=true
 # Enable nested container support for Docker inside IRIS01.
 # security.nesting=true allows nested container behavior.
-# security.syscalls.intercept.mknod=true lets LXD intercept/emulate mknod calls needed by Docker layers.
-# security.syscalls.intercept.setxattr=true lets LXD intercept/emulate setxattr calls needed by Docker layers.
+# security.syscalls.intercept.mknod=true lets LXD intercept/emulate mknod calls used by Docker layers.
+# security.syscalls.intercept.setxattr=true lets LXD intercept/emulate setxattr calls used by Docker layers.
 ```
 
 ### 12.4 Start and inspect IRIS01
@@ -1236,7 +1243,14 @@ lxc start iris01
 
 ```bash
 lxc list iris01
-# Show IRIS01 status and IP address.
+# Confirm that IRIS01 is RUNNING and has an IPv4 address.
+```
+
+### 12.5 Test DNS, outbound networking, and Ubuntu repository access inside IRIS01:
+
+```bash
+lxc exec iris01 -- apt update
+# -- separates lxc arguments from the command executed inside the container.
 ```
 
 ```bash
@@ -1244,6 +1258,11 @@ lxc exec iris01 -- ping -c 2 192.168.52.134
 # Test connectivity from IRIS01 to WEB01.
 # -- separates lxc arguments from the command run inside the container.
 # ping -c 2 sends two ICMP echo requests and stops.
+```
+
+```bash
+lxc exec iris01 -- ping -c 2 google.com
+# Test DNS and internet access
 ```
 
 ---
