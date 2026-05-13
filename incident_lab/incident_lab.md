@@ -415,8 +415,8 @@ sudo cp /var/www/html/index.html /var/www/html/index.html.orig
 ### 5.2 Replace the Apache landing page with course HTML
 
 ```bash
-sudo install -m 0644 "$COURSE_DIR/html.txt" /var/www/html/index.html
-# Copy html.txt into the Apache document root as index.html.
+sudo install -m 0644 "$COURSE_DIR/index.html" /var/www/html/index.html
+# Copy index.html into the Apache document root as a new index.html.
 # install copies a file and sets permissions in one operation.
 # -m 0644 sets owner read/write and group/other read-only permissions.
 ```
