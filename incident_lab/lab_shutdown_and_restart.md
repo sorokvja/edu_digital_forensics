@@ -1,4 +1,4 @@
-# Ubuntu 24.04.4 Lab VM — Safe Shutdown and Restart Manual
+# Incident Lab - VM Safe Shutdown and Restart Manual
 
 This manual is for pausing the incident lab after completing steps **#1–#14** and continuing later from step **#15**.
 
