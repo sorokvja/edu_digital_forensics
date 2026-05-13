@@ -1121,8 +1121,66 @@ lxc storage list
 # Confirm the docker storage pool was created.
 ```
 
----
+Show the default profile:
 
+```bash
+lxc profile show default
+# Show the default LXD profile.
+# In your case, it is likely missing a root disk device.
+```
+
+Creating the default profile if it is absent:
+```bash
+lxc storage create default dir
+# Create a storage pool named default for LXD container root disks.
+# dir uses WEB01's existing filesystem instead of creating another loop-backed disk image.
+# Your existing docker Btrfs pool will remain dedicated to /var/lib/docker inside IRIS01.
+```
+
+```bash
+lxc profile device add default root disk path=/ pool=default
+# Add the missing root disk device to the default profile.
+# default = profile name.
+# root = device name.
+# disk = LXD disk-device type.
+# path=/ makes this the container root filesystem.
+# pool=default stores container root volumes in the default storage pool.
+```
+
+Now check whether you already have an LXD bridge network:
+```bash
+lxc network list
+# List LXD-managed networks.
+# If lxdbr0 is already listed, do not create it again.
+```
+
+Only run this next command if lxdbr0 is not listed:
+```bash
+lxc network create lxdbr0 ipv4.address=auto ipv4.nat=true ipv6.address=none
+# Create a NATed LXD bridge network.
+# ipv4.address=auto lets LXD choose a private IPv4 subnet.
+# ipv4.nat=true allows containers to reach the Internet through WEB01.
+# ipv6.address=none disables IPv6 for this lab bridge.
+```
+
+Check the default profile again:
+```bash
+lxc profile show default
+# Check whether the profile already has an eth0 NIC device.
+```
+
+Only run this next command if the profile has no eth0 device:
+```bash
+lxc profile device add default eth0 nic name=eth0 network=lxdbr0
+# Add a network interface to the default profile.
+# eth0 = LXD device name.
+# nic = network-interface device type.
+# name=eth0 sets the interface name inside containers.
+# network=lxdbr0 connects containers to the LXD bridge.
+```
+The profile should now contain at least a root disk and an eth0 NIC. LXD’s own profile example shows this same structure: root as a disk with path: / and a storage pool, plus eth0 as a NIC.
+
+.............................
 ## 12. Create the IRIS01 LXD container
 
 ### 12.1 Create IRIS01 with course-aligned CPU and RAM limits
@@ -1134,14 +1192,15 @@ lxc list iris01
 ```
 
 ```bash
-lxc init ubuntu:24.04 iris01 -c limits.cpu=8 -c limits.memory=8GiB
+lxc init ubuntu:24.04 iris01 -c limits.cpu=2 -c limits.memory=2GiB
 # Create an Ubuntu 24.04 LXD container named iris01 without starting it.
 # -c applies LXD instance configuration keys.
-# limits.cpu=8 caps the container at 8 vCPU.
-# limits.memory=8GiB caps memory at 8 GiB.
+# limits.cpu=8 caps the container at 2 vCPU.
+# limits.memory=8GiB caps memory at 2 GiB.
 ```
 
 ### 12.2 Attach the 25 GiB Btrfs pool to `/var/lib/docker`
+.............................
 
 ```bash
 lxc storage volume create docker iris01-docker
