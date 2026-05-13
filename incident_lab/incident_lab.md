@@ -1565,6 +1565,10 @@ One note: the detected IRIS01 eth0 IP address is the LXD private network address
 
 ---
 
+**See Safe Shutdown and Restart Manual**
+
+---
+
 ## 15. Generate reconnaissance traffic: choose one attack source
 
 You need one source that is not the normal WEB01 desktop shell to generate scan and web-access evidence.
